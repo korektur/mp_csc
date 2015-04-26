@@ -19,7 +19,7 @@ public class FutureImplTest {
     private static String result = "result";
 
     @Before
-    public void init() {
+    public void setUp() {
         task = new WaitingTask();
         future = new FutureImpl<>(task, result);
         workerThread = new Thread(future);

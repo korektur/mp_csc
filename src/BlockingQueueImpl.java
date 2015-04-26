@@ -43,4 +43,8 @@ public class BlockingQueueImpl<T> {
         this.notifyAll();
         return value;
     }
+
+    public int size() {
+        return size;
+    }
 }
