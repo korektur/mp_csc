@@ -5,21 +5,27 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class FutureImpl<T> implements Future<T>, Runnable {
 
-    private final Runnable task;
-    private final T result;
+    private final Callable<T> task;
     private final AtomicReference<States> state;
     private volatile Thread runningThread;
+    private volatile T result;
+    private volatile Throwable ex;
 
     private enum States {
         NEW,
         IN_PROCESS,
         DONE,
         CANCELED,
+        ERROR
     }
 
     public FutureImpl(Runnable task, T result) {
+        this(Executors.callable(task, result));
+    }
+
+    public FutureImpl(Callable<T> task) {
         this.task = task;
-        this.result = result;
+        result = null;
         state = new AtomicReference<>(States.NEW);
     }
 
@@ -29,9 +35,8 @@ public class FutureImpl<T> implements Future<T>, Runnable {
         if (state.compareAndSet(States.NEW, States.CANCELED)) {
             return true;
         } else if (mayInterruptIfRunning) {
-            //noinspection StatementWithEmptyBody
-            while(runningThread == null) ;
             try {
+                while (runningThread == null) Thread.yield();
                 runningThread.interrupt();
             } finally {
                 state.set(States.CANCELED);
@@ -53,25 +58,27 @@ public class FutureImpl<T> implements Future<T>, Runnable {
 
     @Override
     public T get() throws InterruptedException, ExecutionException {
-        while (state.get() != States.DONE || state.get() != States.CANCELED) {
-            synchronized (task) {
+        synchronized (task) {
+            while (state.get() != States.DONE && state.get() != States.CANCELED && state.get() != States.ERROR) {
                 task.wait();
             }
         }
         if (state.get() == States.CANCELED) throw new CancellationException();
+        if (state.get() == States.ERROR) throw new ExecutionException("Error during completing task.", ex);
         return result;
     }
 
     @Override
     public T get(long timeout, @NotNull TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
         long deadline = unit.toMillis(timeout) + System.currentTimeMillis();
-        while (state.get() != States.DONE || state.get() != States.CANCELED) {
-            synchronized (task) {
+        synchronized (task) {
+            while (state.get() != States.DONE && state.get() != States.CANCELED && state.get() != States.ERROR) {
                 task.wait(unit.toMillis(timeout));
+                if (System.currentTimeMillis() >= deadline) break;
             }
-            if (System.currentTimeMillis() >= deadline) break;
         }
         if (state.get() == States.CANCELED) throw new CancellationException();
+        if (state.get() == States.ERROR) throw new ExecutionException("Error during completing task.", ex);
         if (state.get() != States.DONE) throw new TimeoutException();
         return result;
     }
@@ -80,8 +87,16 @@ public class FutureImpl<T> implements Future<T>, Runnable {
     public void run() {
         if (state.compareAndSet(States.NEW, States.IN_PROCESS)) {
             runningThread = Thread.currentThread();
-            task.run();
-            state.set(States.DONE);
+            try {
+                result = task.call();
+            } catch (Exception e) {
+                ex = e;
+                state.set(States.ERROR);
+                return;
+            }
+
+            state.compareAndSet(States.IN_PROCESS, States.DONE);
+
             synchronized (task) {
                 task.notifyAll();
             }

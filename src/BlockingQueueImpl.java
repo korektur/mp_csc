@@ -1,8 +1,5 @@
 import org.jetbrains.annotations.NotNull;
 
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 public class BlockingQueueImpl<T> {
 
     private class Node {
@@ -14,43 +11,36 @@ public class BlockingQueueImpl<T> {
     private volatile int size;
     private Node head;
     private Node tail;
-    private final Lock lock;
     private final int CAPACITY;
 
     public BlockingQueueImpl(int capacity) {
         size = 0;
         head = new Node();
         tail = head;
-        lock = new ReentrantLock();
         CAPACITY = capacity;
     }
 
-    public void push(@NotNull T value) throws InterruptedException {
+    public synchronized void push(@NotNull T value) throws InterruptedException {
         Node node = new Node();
 
-        lock.lock();
-
         while (size >= CAPACITY)
-            lock.wait();
+            this.wait();
 
         tail.next = node;
         node.prev = tail;
         tail = node;
         ++size;
-        lock.unlock();
-
         node.value = value;
+        this.notifyAll();
     }
 
-    public T pop() throws InterruptedException {
-        lock.lock();
-        while(size == 0)
-            lock.wait();
+    public synchronized T pop() throws InterruptedException {
+        while (size == 0)
+            this.wait();
         final T value = head.value;
         head = head.next;
         --size;
-        lock.unlock();
-        lock.notifyAll();
+        this.notifyAll();
         return value;
     }
 }
