@@ -89,7 +89,7 @@ public class FutureImpl<T> implements Future<T>, Runnable {
             runningThread = Thread.currentThread();
             try {
                 result = task.call();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 ex = e;
                 state.set(States.ERROR);
                 return;

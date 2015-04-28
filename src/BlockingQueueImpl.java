@@ -1,50 +1,38 @@
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayDeque;
+import java.util.Queue;
+
 public class BlockingQueueImpl<T> {
 
-    private class Node {
-        Node next;
-        Node prev;
-        T value;
-    }
-
-    private volatile int size;
-    private Node head;
-    private Node tail;
+    private final Queue<T> queue;
     private final int CAPACITY;
 
     public BlockingQueueImpl(int capacity) {
-        size = 0;
-        head = new Node();
-        tail = head;
         CAPACITY = capacity;
+        queue = new ArrayDeque<>(CAPACITY);
     }
 
-    public synchronized void push(@NotNull T value) throws InterruptedException {
-        Node node = new Node();
-
-        while (size >= CAPACITY)
-            this.wait();
-
-        tail.next = node;
-        node.prev = tail;
-        tail = node;
-        ++size;
-        node.value = value;
-        this.notifyAll();
+    public void push(@NotNull T value) throws InterruptedException {
+        synchronized (queue) {
+            while (queue.size() == CAPACITY)
+                queue.wait();
+            queue.add(value);
+            queue.notify();
+        }
     }
 
-    public synchronized T pop() throws InterruptedException {
-        while (size == 0)
-            this.wait();
-        final T value = head.value;
-        head = head.next;
-        --size;
-        this.notifyAll();
-        return value;
+    public @NotNull T pop() throws InterruptedException {
+        synchronized (queue) {
+            while (queue.size() == 0)
+                queue.wait();
+            final T value = queue.poll();
+            queue.notify();
+            return value;
+        }
     }
 
     public int size() {
-        return size;
+        return queue.size();
     }
 }

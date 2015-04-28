@@ -7,6 +7,7 @@ public class ThreadPoolImpl {
     private final ArrayList<Thread> threads;
     private final BlockingQueueImpl<Future<?>> blockingQueue;
     private static final int QUEUE_CAPACITY = 100;
+    private volatile boolean interrupted = false;
 
     public ThreadPoolImpl(int nThreads) {
         threads = new ArrayList<>(nThreads);
@@ -26,16 +27,22 @@ public class ThreadPoolImpl {
         threads.forEach(java.lang.Thread::start);
     }
 
+    public void interrupt() {
+        interrupted = true;
+        threads.forEach(Thread::interrupt);
+    }
+
     private class Worker implements Runnable {
         @Override
         public void run() {
-            //noinspection InfiniteLoopStatement
             while (true) {
                 try {
-                    FutureImpl<?> task = (FutureImpl<?>) ThreadPoolImpl.this.blockingQueue.pop();
+                    if(Thread.currentThread().isInterrupted()) break;
+                    FutureImpl<?> task = (FutureImpl<?>) blockingQueue.pop();
                     task.run();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    if (interrupted) return;
+                    return;
                 }
             }
         }

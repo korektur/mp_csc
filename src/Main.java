@@ -1,32 +1,32 @@
-import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 
 /**
  * @author Ruslan Akhundov
  */
 public class Main {
 
-    public static void main(String[] args) {
-        ThreadPoolImpl threadPool = new ThreadPoolImpl(10);
-        TaskFactory taskFactory = new TaskFactory();
+    private static void printUsage() {
+        System.out.println("Type \"submit [DURATION]\" to add task with specified DURATION in milliseconds.");
+        System.out.println("Type \"cancel [id]\" to cancel task with specified id.");
+        System.out.println("Type \"status [id]\" to get status of task with specified id.");
+        System.out.println("Type \"exit\" to exit");
+    }
 
-
+    public static void main(String[] args) throws IOException {
+        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+        System.out.print("Number of threads: ");
+        ThreadPoolImpl threadPool = new ThreadPoolImpl(Integer.parseInt(in.readLine()));
         threadPool.execute();
-        ArrayList<Future<?>> results = new ArrayList<>(100);
-        for (int i = 0; i < 1; ++i) {
-            try {
-                results.add(threadPool.submit(Executors.callable(taskFactory.createTask(i))));
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        for (int i = 0; i < 1; ++i) {
-            try {
-                results.get(i).get();
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+
+        while(true) {
+            printUsage();
+            String input = in.readLine();
+//            if (input.startsWith("submit "))
+            if ("exit".equals(input)) {
+                threadPool.interrupt();
+                return;
             }
         }
     }
