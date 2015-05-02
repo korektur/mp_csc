@@ -16,7 +16,7 @@ public class FutureImplTest {
     private WaitingTask task;
     private FutureImpl future;
     private Thread workerThread;
-    private static String result = "result";
+    private static final String result = "result";
 
     @Before
     public void setUp() {

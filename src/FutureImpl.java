@@ -102,4 +102,8 @@ public class FutureImpl<T> implements Future<T>, Runnable {
             }
         }
     }
+
+    public States getStatus() {
+        return state.get();
+    }
 }
